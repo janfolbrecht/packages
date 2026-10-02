@@ -44,6 +44,7 @@ class MarkerController {
   func update(
     from platformMarker: PlatformMarker,
     assetProvider: AssetProvider,
+    iconCache: MarkerIconCache,
     screenScale: CGFloat
   ) {
     clusterManagerIdentifier = platformMarker.clusterManagerId
@@ -61,6 +62,7 @@ class MarkerController {
       from: platformMarker,
       mapView: mapView,
       assetProvider: assetProvider,
+      iconCache: iconCache,
       screenScale: screenScale,
       usingOpacityForVisibility: useOpacityForVisibility
     )
@@ -74,12 +76,14 @@ class MarkerController {
     from platformMarker: PlatformMarker,
     mapView: GMSMapView?,
     assetProvider: AssetProvider,
+    iconCache: MarkerIconCache,
     screenScale: CGFloat,
     usingOpacityForVisibility useOpacityForVisibility: Bool
   ) {
     marker.groundAnchor = platformMarker.anchor.toCGPoint()
     marker.isDraggable = platformMarker.draggable
-    marker.icon = platformMarker.icon.createIcon(
+    marker.icon = iconCache.icon(
+      for: platformMarker.icon,
       assetProvider: assetProvider,
       screenScale: screenScale
     )
@@ -116,6 +120,7 @@ class MarkersController {
   private weak var eventDelegate: MapEventDelegate?
   private weak var clusterManagersController: ClusterManagersController?
   private let assetProvider: AssetProvider
+  private let iconCache = MarkerIconCache()
   private weak var mapView: GMSMapView?
   private let markerType: PlatformMarkerType
 
@@ -158,6 +163,7 @@ class MarkersController {
     controller.update(
       from: markerToAdd,
       assetProvider: assetProvider,
+      iconCache: iconCache,
       screenScale: getScreenScale()
     )
 
@@ -184,6 +190,7 @@ class MarkersController {
     controller.update(
       from: markerToChange,
       assetProvider: assetProvider,
+      iconCache: iconCache,
       screenScale: getScreenScale()
     )
 

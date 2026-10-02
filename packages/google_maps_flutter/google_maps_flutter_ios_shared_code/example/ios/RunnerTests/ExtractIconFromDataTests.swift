@@ -365,6 +365,116 @@ import Testing
     #expect(resultImage == nil || resultImage!.size.height >= 0)
   }
 
+  @Test func iconCacheKeyIsEqualForEqualBitmaps() throws {
+    let pngData = try #require(createOnePixelImage().pngData())
+    let bitmap = PlatformBitmapBytesMap(
+      byteData: FlutterStandardTypedData(bytes: pngData),
+      bitmapScaling: .auto,
+      imagePixelRatio: 1,
+      width: 10,
+      height: nil
+    )
+    let sameBitmap = PlatformBitmapBytesMap(
+      byteData: FlutterStandardTypedData(bytes: pngData),
+      bitmapScaling: .auto,
+      imagePixelRatio: 1,
+      width: 10,
+      height: nil
+    )
+
+    let key = try #require(bitmap.iconCacheKey(screenScale: 2))
+    #expect(key == sameBitmap.iconCacheKey(screenScale: 2))
+  }
+
+  @Test func iconCacheKeyDiffersByScreenScale() throws {
+    let pngData = try #require(createOnePixelImage().pngData())
+    let bitmap = PlatformBitmapBytesMap(
+      byteData: FlutterStandardTypedData(bytes: pngData),
+      bitmapScaling: .auto,
+      imagePixelRatio: 1,
+      width: nil,
+      height: nil
+    )
+
+    #expect(bitmap.iconCacheKey(screenScale: 2) != bitmap.iconCacheKey(screenScale: 3))
+  }
+
+  @Test func iconCacheKeyDiffersBySize() {
+    func bitmap(width: Double?, height: Double?) -> PlatformBitmapAssetMap {
+      return PlatformBitmapAssetMap(
+        assetName: "fakeImageName",
+        bitmapScaling: .auto,
+        imagePixelRatio: 1,
+        width: width,
+        height: height
+      )
+    }
+    let keys = [
+      bitmap(width: nil, height: nil),
+      bitmap(width: 0, height: nil),
+      bitmap(width: 10, height: nil),
+      bitmap(width: nil, height: 10),
+      bitmap(width: 10, height: 10),
+    ].map { $0.iconCacheKey(screenScale: 2) }
+
+    for (index, key) in keys.enumerated() {
+      #expect(key != nil)
+      #expect(!keys[(index + 1)...].contains(key))
+    }
+  }
+
+  @Test func iconCacheKeyDiffersByLastByte() throws {
+    // Images of the same format and size typically share a long common prefix.
+    var bytes = Data(repeating: 7, count: 1024)
+    let key = PlatformBitmapBytes(byteData: FlutterStandardTypedData(bytes: bytes))
+      .iconCacheKey(screenScale: 2)
+    bytes[bytes.count - 1] = 8
+    let otherKey = PlatformBitmapBytes(byteData: FlutterStandardTypedData(bytes: bytes))
+      .iconCacheKey(screenScale: 2)
+
+    #expect(key != nil)
+    #expect(key != otherKey)
+  }
+
+  @Test func iconCacheKeyIsNilForPinConfig() {
+    let pinConfig = PlatformBitmapPinConfig(
+      backgroundColor: nil,
+      borderColor: nil,
+      glyphColor: nil,
+      glyphTextColor: nil,
+      glyphText: "Hi",
+      glyphBitmap: nil
+    )
+
+    #expect(pinConfig.iconCacheKey(screenScale: 2) == nil)
+  }
+
+  @Test func cachedIconIsReusedAndMatchesUncachedIcon() throws {
+    let testImage = createOnePixelImage()
+    let assetName = "fakeImageName"
+    let assetProvider = TestAssetProvider(image: testImage, forAssetName: assetName, package: nil)
+    let bitmap = PlatformBitmapAssetMap(
+      assetName: assetName,
+      bitmapScaling: .auto,
+      imagePixelRatio: 1,
+      width: 15,
+      height: 45
+    )
+    let screenScale: CGFloat = 3.0
+    let cache = MarkerIconCache()
+
+    let cachedImage = try #require(
+      cache.icon(for: bitmap, assetProvider: assetProvider, screenScale: screenScale))
+    let uncachedImage = try #require(
+      bitmap.createIcon(assetProvider: assetProvider, screenScale: screenScale))
+
+    #expect(cachedImage.size == uncachedImage.size)
+    #expect(cachedImage.scale == uncachedImage.scale)
+    #expect(
+      cache.icon(for: bitmap, assetProvider: assetProvider, screenScale: screenScale)
+        === cachedImage)
+  }
+
   @Test func isScalableWithScaleFactorFromSize100x100to10x100() {
     let originalSize = CGSize(width: 100.0, height: 100.0)
     let targetSize = CGSize(width: 10.0, height: 100.0)

@@ -117,6 +117,93 @@ extension PlatformBitmap {
 
     return image
   }
+
+  /// Returns a key that identifies the image `createIcon` returns for this bitmap at the given
+  /// screen scale, or nil if the image should not be cached.
+  ///
+  /// The key holds every value that `createIcon` reads, so that two bitmaps with the same key
+  /// always produce the same image. Pin configs are not cached, as they are used only for advanced
+  /// markers and their glyphs can be arbitrary bitmaps.
+  func iconCacheKey(screenScale: CGFloat) -> [AnyHashable?]? {
+    switch self {
+    case let bitmap as PlatformBitmapDefaultMarker:
+      return ["default", bitmap.hue]
+    case let bitmap as PlatformBitmapAsset:
+      return ["asset", bitmap.name, bitmap.pkg]
+    case let bitmap as PlatformBitmapAssetImage:
+      return ["assetImage", bitmap.name, bitmap.scale]
+    case let bitmap as PlatformBitmapBytes:
+      return ["bytes", bitmap.byteData.data, screenScale]
+    case let bitmap as PlatformBitmapAssetMap:
+      return [
+        "assetMap", bitmap.assetName, bitmap.bitmapScaling, bitmap.imagePixelRatio, bitmap.width,
+        bitmap.height, screenScale,
+      ]
+    case let bitmap as PlatformBitmapBytesMap:
+      return [
+        "bytesMap", bitmap.byteData.data, bitmap.bitmapScaling, bitmap.imagePixelRatio,
+        bitmap.width, bitmap.height, screenScale,
+      ]
+    default:
+      return nil
+    }
+  }
+}
+
+/// A cache of marker icons, so that markers with the same bitmap share one image instead of each
+/// decoding and scaling its own copy.
+///
+/// Each map has its own cache, since the map's asset provider decides which image an asset name
+/// resolves to.
+class MarkerIconCache {
+  /// The maximum number of icons kept.
+  ///
+  /// Apps with many markers typically use a few distinct icons; the limit only bounds the cache for
+  /// apps that give every marker its own image.
+  private static let countLimit = 256
+
+  private let cache = NSCache<IconCacheKey, UIImage>()
+
+  init() {
+    cache.countLimit = MarkerIconCache.countLimit
+  }
+
+  /// Returns the icon for the given bitmap, creating it with `createIcon` if it is not cached.
+  func icon(
+    for bitmap: PlatformBitmap,
+    assetProvider: AssetProvider,
+    screenScale: CGFloat
+  ) -> UIImage? {
+    guard let keyValue = bitmap.iconCacheKey(screenScale: screenScale) else {
+      return bitmap.createIcon(assetProvider: assetProvider, screenScale: screenScale)
+    }
+    let key = IconCacheKey(keyValue)
+    if let image = cache.object(forKey: key) {
+      return image
+    }
+    let image = bitmap.createIcon(assetProvider: assetProvider, screenScale: screenScale)
+    if let image = image {
+      cache.setObject(image, forKey: key)
+    }
+    return image
+  }
+}
+
+/// Wraps an icon cache key in an object, as NSCache requires.
+private class IconCacheKey: NSObject {
+  let value: [AnyHashable?]
+
+  init(_ value: [AnyHashable?]) {
+    self.value = value
+  }
+
+  override var hash: Int {
+    return value.hashValue
+  }
+
+  override func isEqual(_ object: Any?) -> Bool {
+    return (object as? IconCacheKey)?.value == value
+  }
 }
 
 /// Creates a scaled version of the provided UIImage based on a specified scale factor.

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import Flutter
 import GoogleMaps
 import Testing
 
@@ -35,6 +36,28 @@ import Testing
 
   func placeholderBitmap() -> PlatformBitmap {
     return PlatformBitmapDefaultMarker(hue: 0)
+  }
+
+  /// Returns a visible marker with the given identifier and icon.
+  func platformMarker(withIdentifier markerIdentifier: String, icon: PlatformBitmap)
+    -> PlatformMarker
+  {
+    return PlatformMarker(
+      alpha: 1.0,
+      anchor: PlatformPoint(x: 0, y: 0),
+      consumeTapEvents: false,
+      draggable: false,
+      flat: false,
+      icon: icon,
+      infoWindow: PlatformInfoWindow(anchor: PlatformPoint(x: 0, y: 0)),
+      position: PlatformLatLng(latitude: 0, longitude: 0),
+      rotation: 0,
+      visible: true,
+      zIndex: 0,
+      markerId: markerIdentifier,
+      clusterManagerId: nil,
+      collisionBehavior: nil
+    )
   }
 
   @Test func setsMarkerNumericProperties() throws {
@@ -266,10 +289,47 @@ import Testing
       ),
       mapView: MarkerControllerTests.mapView(),
       assetProvider: TestAssetProvider(),
+      iconCache: MarkerIconCache(),
       screenScale: 1,
       usingOpacityForVisibility: false
     )
     #expect(marker.hasSetMap)
+  }
+
+  @Test func markersWithEqualIconsShareImage() throws {
+    let mapView = MarkerControllerTests.mapView()
+    let controller = markersController(
+      withMapView: mapView, eventDelegate: TestMapEventHandler())
+
+    // Separate but equal bitmaps, as each marker arrives with its own copy of the bytes.
+    let bytes = try #require(UIImage(systemName: "star")?.pngData())
+    controller.add([
+      platformMarker(
+        withIdentifier: "first",
+        icon: PlatformBitmapBytes(byteData: FlutterStandardTypedData(bytes: bytes))),
+      platformMarker(
+        withIdentifier: "second",
+        icon: PlatformBitmapBytes(byteData: FlutterStandardTypedData(bytes: bytes))),
+    ])
+
+    let firstIcon = try #require(controller.markerIdentifierToController["first"]?.marker.icon)
+    let secondIcon = try #require(controller.markerIdentifierToController["second"]?.marker.icon)
+    #expect(firstIcon === secondIcon)
+  }
+
+  @Test func markersWithDifferentIconsDoNotShareImage() throws {
+    let mapView = MarkerControllerTests.mapView()
+    let controller = markersController(
+      withMapView: mapView, eventDelegate: TestMapEventHandler())
+
+    controller.add([
+      platformMarker(withIdentifier: "first", icon: PlatformBitmapDefaultMarker(hue: 0)),
+      platformMarker(withIdentifier: "second", icon: PlatformBitmapDefaultMarker(hue: 120)),
+    ])
+
+    let firstIcon = try #require(controller.markerIdentifierToController["first"]?.marker.icon)
+    let secondIcon = try #require(controller.markerIdentifierToController["second"]?.marker.icon)
+    #expect(firstIcon !== secondIcon)
   }
 
   @Test func assetProviderIsRetained() {

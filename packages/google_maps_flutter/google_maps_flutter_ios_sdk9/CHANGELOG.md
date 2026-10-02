@@ -1,3 +1,7 @@
+## 2.19.1
+
+* Improves the performance of adding many markers that share an icon by creating the icon image once and reusing it.
+
 ## 2.19.0
 
 * Adds support for tapping points of interest on the map.
