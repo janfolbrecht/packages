@@ -82,11 +82,20 @@ class MarkerController {
   ) {
     marker.groundAnchor = platformMarker.anchor.toCGPoint()
     marker.isDraggable = platformMarker.draggable
-    marker.icon = iconCache.icon(
-      for: platformMarker.icon,
-      assetProvider: assetProvider,
-      screenScale: screenScale
-    )
+    let iconStart = CACurrentMediaTime()
+    if IconCacheBench.cacheDisabled {
+      marker.icon = platformMarker.icon.createIcon(
+        assetProvider: assetProvider,
+        screenScale: screenScale
+      )
+    } else {
+      marker.icon = iconCache.icon(
+        for: platformMarker.icon,
+        assetProvider: assetProvider,
+        screenScale: screenScale
+      )
+    }
+    IconCacheBench.iconSeconds += CACurrentMediaTime() - iconStart
     marker.isFlat = platformMarker.flat
     marker.position = platformMarker.position.toCLLocationCoordinate2D()
     marker.rotation = platformMarker.rotation
@@ -310,4 +319,12 @@ class MarkersController {
     // https://github.com/flutter/flutter/issues/125496.
     return mapView?.traitCollection.displayScale ?? 1.0
   }
+}
+
+/// Benchmark branch only: the switch and the icon time of the current batch.
+///
+/// Launch with `-IconCacheBenchDisabled YES` to create every icon without the cache.
+enum IconCacheBench {
+  static let cacheDisabled = UserDefaults.standard.bool(forKey: "IconCacheBenchDisabled")
+  static var iconSeconds: CFTimeInterval = 0
 }

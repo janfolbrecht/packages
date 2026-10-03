@@ -10,6 +10,7 @@ import 'animate_camera.dart';
 import 'clustering.dart';
 import 'collision_behavior.dart';
 import 'ground_overlay.dart';
+import 'icon_cache_bench.dart';
 import 'lite_mode.dart';
 import 'map_click.dart';
 import 'map_coordinates.dart';
@@ -34,6 +35,10 @@ import 'tile_overlay.dart';
 const String? _mapId = null;
 
 void main() {
+  // Benchmark branch: open the icon cache benchmark directly.
+  runApp(const MaterialApp(home: IconCacheBenchPage()));
+  return;
+  // ignore: dead_code
   runApp(
     const MaterialApp(
       home: MapsDemo(<GoogleMapExampleAppPage>[

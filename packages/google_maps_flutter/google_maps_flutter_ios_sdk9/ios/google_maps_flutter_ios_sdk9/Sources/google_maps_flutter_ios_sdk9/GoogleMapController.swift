@@ -566,9 +566,16 @@ class MapCallHandler: MapsApi {
     changing toChange: [PlatformMarker],
     removing idsToRemove: [String]
   ) {
+    let batchStart = CACurrentMediaTime()
+    IconCacheBench.iconSeconds = 0
     controller?.markersController.add(toAdd)
     controller?.markersController.change(toChange)
     controller?.markersController.removeMarkers(withIdentifiers: idsToRemove)
+    let batchSeconds = CACurrentMediaTime() - batchStart
+    NSLog(
+      "[IconCacheBench] cache=%@ add=%d change=%d remove=%d batch_ms=%.1f icon_ms=%.1f",
+      IconCacheBench.cacheDisabled ? "off" : "on", toAdd.count, toChange.count,
+      idsToRemove.count, batchSeconds * 1000, IconCacheBench.iconSeconds * 1000)
     // Invoke clustering after markers are added.
     controller?.clusterManagersController.invokeClusteringForEachClusterManager()
   }
